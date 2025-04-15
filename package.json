@@ -17,11 +17,11 @@
     "productName": "Image Resizer",
     "compression": "maximum",
     "files": [
-      "**/*",
-      "!dist",
-      "!**/*.md",
-      "!**/*.test.js",
-      "!**/__tests__"
+      "main.js",
+      "index.html",
+      "renderer.js",
+      "core/**",
+      "assets/**"
     ],
     "directories": {
       "buildResources": "assets"
@@ -33,7 +33,10 @@
       "target": "nsis"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Utility"
     }
   },
@@ -55,7 +58,6 @@
     "electron": "^35.1.5"
   },
   "dependencies": {
-    
     "sharp": "^0.34.1"
   }
 }
