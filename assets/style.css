@@ -11,6 +11,12 @@ body {
     align-items: center;
 }
 
+.note {
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 6px;
+}
+
 .container {
     width: 100%;
     max-width: 640px;

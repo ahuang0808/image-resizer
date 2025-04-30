@@ -55,11 +55,27 @@ class ImageResizer {
 
         const outputPath = path.join(outputDir, `${base}_compressed.jpg`);
 
+        // If no size constraint is set, convert to high-quality JPG only
+        if (this.targetSizeBytes === 0) {
+            if (isJPG) {
+                // For JPG images, optionally re-encode to ensure naming consistency
+                const jpgBuffer = await sharp(imageBuffer).jpeg({ quality: 100 }).toBuffer();
+                fs.writeFileSync(outputPath, jpgBuffer);
+            } else {
+                // Convert non-JPG formats to high-quality JPG
+                const jpgBuffer = await sharp(imageBuffer).jpeg({ quality: 100 }).toBuffer();
+                fs.writeFileSync(outputPath, jpgBuffer);
+            }
+            return outputPath;
+        }
+
+        // If already a JPG and under size limit, copy as-is
         if (isJPG && originalSize <= this.targetSizeBytes) {
             fs.copyFileSync(inputPath, outputPath);
             return outputPath;
         }
 
+        // Compress image to fit within target size, reducing quality step-by-step
         let quality = 100;
         let compressed = await sharp(imageBuffer).jpeg({ quality }).toBuffer();
 
