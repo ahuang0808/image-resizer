@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const FileHandler = require("./core/FileHandler");
-const ImageResizer = require("./core/ImageResizer");
+const ImageCompressor = require("./core/ImageCompressor");
 const ImageConverter = require("./core/ImageConverter");
 const path = require("path");
 const os = require("os");
@@ -32,19 +32,19 @@ app.on("before-quit", () => {
   clearPreviewDir(PREVIEW_DIR);
 });
 
-ipcMain.handle("resize-images", async (event, { filePaths, outputDir, sizeMB, format }) => {
-  const resizer = new ImageResizer(sizeMB, format);
-  const validPaths = await resizer.collectValidImagePaths(filePaths);
+ipcMain.handle("compress-images", async (event, { filePaths, outputDir, sizeMB, format }) => {
+  const compresor = new ImageCompressor(sizeMB, format);
+  const validPaths = await compresor.collectValidImagePaths(filePaths);
 
   const results = [];
   const total = validPaths.length;
 
   for (let i = 0; i < total; i++) {
     const inputPath = validPaths[i];
-    const output = await resizer.processSingle(inputPath, outputDir);
+    const output = await compresor.processSingle(inputPath, outputDir);
     if (output) results.push(output);
 
-    event.sender.send("resize-progress", {
+    event.sender.send("compress-progress", {
       current: i + 1,
       total,
     });

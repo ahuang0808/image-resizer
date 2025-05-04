@@ -5,7 +5,7 @@ module.exports = {
     SUPPORTED_IMAGE_EXTENSIONS: [".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"],
   
     // Name of the preview directory (resolved under os.tmpdir())
-    PREVIEW_DIR_NAME: "image-resizer-previews",
+    PREVIEW_DIR_NAME: "swing-image-previews",
   
     // Thumbnail preview image width in pixels
     PREVIEW_WIDTH: 300,

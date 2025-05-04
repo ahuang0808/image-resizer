@@ -1,35 +1,46 @@
-const { ipcRenderer, webUtils } = require("electron");
+const { ipcRenderer } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+
 const { generatePreview, ensurePreviewDirExists } = require("./core/utils");
-const {
-  SUPPORTED_IMAGE_EXTENSIONS,
-  PREVIEW_DIR_NAME
-} = require("./core/config");
+const { SUPPORTED_IMAGE_EXTENSIONS, PREVIEW_DIR_NAME } = require("./core/config");
 
 let selectedPaths = [];
 let outputPath = "";
 
-// Elements
+// DOM references
 const startScreen = document.getElementById("start-screen");
-const resizerScreen = document.getElementById("resizer-screen");
-const startBox = document.querySelector(".start-box");
+const workspaceScreen = document.getElementById("workspace-screen");
 const startSelectBtn = document.getElementById("startSelectBtn");
-const progressBar = document.getElementById("progressBar");
-const progressText = document.getElementById("progressText");
-const outputBtn = document.getElementById("outputBtn");
-const outputDir = document.getElementById("outputDir");
+const startBox = document.querySelector(".app-start-box");
 const previewGrid = document.getElementById("previewGrid");
+
+// Compress tab
+const compressBtn = document.getElementById("compressBtn");
+const compressSizeInput = document.getElementById("compressSizeInput");
+const compressOutputBtn = document.getElementById("compressOutputBtn");
+const compressOutputDir = document.getElementById("compressOutputDir");
+const compressProgressBar = document.getElementById("compressProgressBar");
+const compressProgressText = document.getElementById("compressProgressText");
+
+// Convert tab
+const convertBtn = document.getElementById("convertBtn");
+const convertOutputBtn = document.getElementById("convertOutputBtn");
+const convertOutputDir = document.getElementById("convertOutputDir");
+const convertFormatSelect = document.getElementById("convertFormatSelect");
+
+// Tabs
 const tabCompress = document.getElementById("tab-compress");
 const tabConvert = document.getElementById("tab-convert");
 const tabCrop = document.getElementById("tab-crop");
 const tabBack = document.getElementById("tab-back");
 
+// Prepare preview directory
 const previewDir = path.join(os.tmpdir(), PREVIEW_DIR_NAME);
 ensurePreviewDirExists(previewDir);
 
-// Drag & Drop for entire start box
+// Drag and drop events
 startBox.addEventListener("dragover", (e) => {
   e.preventDefault();
   startBox.classList.add("dragging");
@@ -47,71 +58,124 @@ startBox.addEventListener("drop", (e) => {
   if (files.length === 0) return;
 
   selectedPaths = files.map(f => f.path);
-  switchToResizer();
+  switchToWorkspace();
 });
 
-// File selection via button
+// Manual select
 startSelectBtn.addEventListener("click", async () => {
   const paths = await ipcRenderer.invoke("dialog:select-files");
   if (paths && paths.length > 0) {
     selectedPaths = paths;
-    switchToResizer();
+    switchToWorkspace();
   }
 });
 
-// Select output directory
-outputBtn.addEventListener("click", async () => {
+// Compress output directory
+compressOutputBtn.addEventListener("click", async () => {
   const dir = await ipcRenderer.invoke("dialog:select-output-dir");
   if (dir) {
     outputPath = dir;
-    outputDir.textContent = outputPath;
+    compressOutputDir.textContent = dir;
   }
 });
 
-// Start resizing
-document.getElementById("resizeBtn").addEventListener("click", async () => {
-  const size = Number(document.getElementById("sizeInput").value);
-  if (!outputPath) {
-    alert("请选择导出路径！");
-    return;
-  }
-  if (selectedPaths.length === 0) {
-    alert("请选择图片！");
-    return;
-  }
+// Compress action
+compressBtn.addEventListener("click", async () => {
+  const size = Number(compressSizeInput.value);
+  if (!outputPath) return alert("请选择导出路径！");
+  if (selectedPaths.length === 0) return alert("请选择图片！");
 
-  progressBar.value = 0;
-  progressText.textContent = "进度：0%";
+  compressProgressBar.value = 0;
+  compressProgressText.textContent = "进度：0%";
 
-  const results = await ipcRenderer.invoke("resize-images", {
+  const results = await ipcRenderer.invoke("compress-images", {
     filePaths: selectedPaths,
     outputDir: outputPath,
     sizeMB: size
   });
 
-  progressText.textContent = `完成！共处理 ${results.length} 张图片。`;
+  compressProgressText.textContent = `完成！共处理 ${results.length} 张图片。`;
 });
 
-// Progress update from main process
-ipcRenderer.on("resize-progress", (event, { current, total }) => {
+ipcRenderer.on("compress-progress", (event, { current, total }) => {
   const percent = Math.floor((current / total) * 100);
-  progressBar.value = percent;
-  progressText.textContent = `进度：${percent}%（${current}/${total}）`;
+  compressProgressBar.value = percent;
+  compressProgressText.textContent = `进度：${percent}%（${current}/${total}）`;
 });
 
-// Switch UI to resizer screen
-function switchToResizer() {
-  startScreen.classList.remove("active");
-  resizerScreen.classList.add("active");
-  renderPreview(selectedPaths);
+// Convert output directory
+convertOutputBtn.addEventListener("click", async () => {
+  const dir = await ipcRenderer.invoke("dialog:select-output-dir");
+  if (dir) convertOutputDir.textContent = dir;
+});
+
+// Convert action
+convertBtn.addEventListener("click", async () => {
+  const format = convertFormatSelect.value;
+  const output = convertOutputDir.textContent;
+
+  if (!output) return alert("请选择导出路径！");
+  if (selectedPaths.length === 0) return alert("请选择图片！");
+
+  const bar = document.getElementById("convertProgressBar");
+  const text = document.getElementById("convertProgressText");
+  bar.value = 0;
+  text.textContent = "进度：0%";
+
+  const results = await ipcRenderer.invoke("convert-images", {
+    filePaths: selectedPaths,
+    outputDir: output,
+    format
+  });
+
+  text.textContent = `完成！共转换 ${results.length} 张图片。`;
+});
+
+ipcRenderer.on("convert-progress", (event, { current, total }) => {
+  const percent = Math.floor((current / total) * 100);
+  document.getElementById("convertProgressBar").value = percent;
+  document.getElementById("convertProgressText").textContent = `进度：${percent}%（${current}/${total}）`;
+});
+
+// Tab switching
+function activateTab(selectedTab) {
+  document.querySelectorAll(".app-tab").forEach(tab => tab.classList.remove("active"));
+  selectedTab.classList.add("active");
+
+  document.querySelectorAll(".app-compress-config, .app-convert-config, .app-crop-config").forEach(box => {
+    box.classList.add("hidden");
+  });
+
+  if (selectedTab.id === "tab-compress") {
+    document.querySelector(".app-compress-config").classList.remove("hidden");
+  } else if (selectedTab.id === "tab-convert") {
+    document.querySelector(".app-convert-config").classList.remove("hidden");
+  } else if (selectedTab.id === "tab-crop") {
+    document.querySelector(".app-crop-config")?.classList.remove("hidden");
+  }
 }
 
-// Render thumbnails in right preview panel
+tabCompress.addEventListener("click", () => activateTab(tabCompress));
+tabConvert.addEventListener("click", () => activateTab(tabConvert));
+tabCrop.addEventListener("click", () => activateTab(tabCrop));
+tabBack.addEventListener("click", () => {
+  startScreen.classList.add("active");
+  workspaceScreen.classList.remove("active");
+});
+
+// Switch to main workspace screen
+function switchToWorkspace() {
+  startScreen.classList.remove("active");
+  workspaceScreen.classList.add("active");
+  renderPreview(selectedPaths);
+  activateTab(tabCompress);
+}
+
+// Render image preview cards
 async function renderPreview(paths) {
   previewGrid.innerHTML = "";
 
-  for (let i = 0; i < paths.length; i++) {
-    const filePath = paths[i];
+  for (const filePath of paths) {
     const ext = path.extname(filePath).toLowerCase();
     if (!SUPPORTED_IMAGE_EXTENSIONS.includes(ext)) continue;
 
@@ -161,81 +225,3 @@ async function renderPreview(paths) {
     previewGrid.appendChild(card);
   }
 }
-
-function activateTab(selectedTab) {
-  document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
-  selectedTab.classList.add("active");
-
-  // Hide all panels
-  document.querySelectorAll(".config-box").forEach(box => box.style.display = "none");
-
-  // Show specific panel
-  if (selectedTab.id === "tab-compress") {
-    document.querySelector(".compress-config").style.display = "block";
-  } else if (selectedTab.id === "tab-convert") {
-    document.querySelector(".convert-config").style.display = "block";
-  } else if (selectedTab.id === "tab-crop") {
-    document.querySelector(".crop-config").style.display = "block";
-  }
-}
-
-tabCompress.addEventListener("click", () => {
-  activateTab(tabCompress);
-});
-
-tabConvert.addEventListener("click", () => {
-  activateTab(tabConvert);
-});
-
-tabCrop.addEventListener("click", () => {
-  activateTab(tabCrop);
-});
-
-tabBack.addEventListener("click", () => {
-  startScreen.classList.add("active");
-  resizerScreen.classList.remove("active");
-});
-
-// helper
-// Select convert output directory
-document.getElementById("convertOutputBtn").addEventListener("click", async () => {
-  const dir = await ipcRenderer.invoke("dialog:select-output-dir");
-  if (dir) {
-    document.getElementById("convertOutputDir").textContent = dir;
-  }
-});
-
-// Handle image format conversion
-document.getElementById("convertBtn").addEventListener("click", async () => {
-  const format = document.getElementById("convertFormatSelect").value;
-  const output = document.getElementById("convertOutputDir").textContent;
-
-  if (!output) {
-    alert("请选择导出路径！");
-    return;
-  }
-
-  if (selectedPaths.length === 0) {
-    alert("请选择图片！");
-    return;
-  }
-
-  const bar = document.getElementById("convertProgressBar");
-  const text = document.getElementById("convertProgressText");
-  bar.value = 0;
-  text.textContent = "进度：0%";
-
-  const results = await ipcRenderer.invoke("convert-images", {
-    filePaths: selectedPaths,
-    outputDir: output,
-    format: format
-  });
-
-  text.textContent = `完成！共转换 ${results.length} 张图片。`;
-});
-
-ipcRenderer.on("convert-progress", (event, { current, total }) => {
-  const percent = Math.floor((current / total) * 100);
-  document.getElementById("convertProgressBar").value = percent;
-  document.getElementById("convertProgressText").textContent = `进度：${percent}%（${current}/${total}）`;
-});

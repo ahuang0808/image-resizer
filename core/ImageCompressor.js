@@ -8,7 +8,7 @@ const {
   DEBUG
 } = require("./config");
 
-class ImageResizer {
+class ImageCompressor {
   constructor(targetSizeMB = DEFAULT_TARGET_MB) {
     this.targetSizeBytes = targetSizeMB * 1024 * 1024;
   }
@@ -16,7 +16,7 @@ class ImageResizer {
   // Debug log
   log(message) {
     if (DEBUG) {
-      console.log(`[ImageResizer] ${message}`);
+      console.log(`[ImageCompressor] ${message}`);
     }
   }
 
@@ -115,4 +115,4 @@ class ImageResizer {
   }
 }
 
-module.exports = ImageResizer;
+module.exports = ImageCompressor;
