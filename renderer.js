@@ -21,6 +21,10 @@ const progressText = document.getElementById("progressText");
 const outputBtn = document.getElementById("outputBtn");
 const outputDir = document.getElementById("outputDir");
 const previewGrid = document.getElementById("previewGrid");
+const tabCompress = document.getElementById("tab-compress");
+const tabConvert = document.getElementById("tab-convert");
+const tabCrop = document.getElementById("tab-crop");
+const tabBack = document.getElementById("tab-back");
 
 const previewDir = path.join(os.tmpdir(), PREVIEW_DIR_NAME);
 ensurePreviewDirExists(previewDir);
@@ -157,3 +161,81 @@ async function renderPreview(paths) {
     previewGrid.appendChild(card);
   }
 }
+
+function activateTab(selectedTab) {
+  document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
+  selectedTab.classList.add("active");
+
+  // Hide all panels
+  document.querySelectorAll(".config-box").forEach(box => box.style.display = "none");
+
+  // Show specific panel
+  if (selectedTab.id === "tab-compress") {
+    document.querySelector(".compress-config").style.display = "block";
+  } else if (selectedTab.id === "tab-convert") {
+    document.querySelector(".convert-config").style.display = "block";
+  } else if (selectedTab.id === "tab-crop") {
+    document.querySelector(".crop-config").style.display = "block";
+  }
+}
+
+tabCompress.addEventListener("click", () => {
+  activateTab(tabCompress);
+});
+
+tabConvert.addEventListener("click", () => {
+  activateTab(tabConvert);
+});
+
+tabCrop.addEventListener("click", () => {
+  activateTab(tabCrop);
+});
+
+tabBack.addEventListener("click", () => {
+  startScreen.classList.add("active");
+  resizerScreen.classList.remove("active");
+});
+
+// helper
+// Select convert output directory
+document.getElementById("convertOutputBtn").addEventListener("click", async () => {
+  const dir = await ipcRenderer.invoke("dialog:select-output-dir");
+  if (dir) {
+    document.getElementById("convertOutputDir").textContent = dir;
+  }
+});
+
+// Handle image format conversion
+document.getElementById("convertBtn").addEventListener("click", async () => {
+  const format = document.getElementById("convertFormatSelect").value;
+  const output = document.getElementById("convertOutputDir").textContent;
+
+  if (!output) {
+    alert("请选择导出路径！");
+    return;
+  }
+
+  if (selectedPaths.length === 0) {
+    alert("请选择图片！");
+    return;
+  }
+
+  const bar = document.getElementById("convertProgressBar");
+  const text = document.getElementById("convertProgressText");
+  bar.value = 0;
+  text.textContent = "进度：0%";
+
+  const results = await ipcRenderer.invoke("convert-images", {
+    filePaths: selectedPaths,
+    outputDir: output,
+    format: format
+  });
+
+  text.textContent = `完成！共转换 ${results.length} 张图片。`;
+});
+
+ipcRenderer.on("convert-progress", (event, { current, total }) => {
+  const percent = Math.floor((current / total) * 100);
+  document.getElementById("convertProgressBar").value = percent;
+  document.getElementById("convertProgressText").textContent = `进度：${percent}%（${current}/${total}）`;
+});

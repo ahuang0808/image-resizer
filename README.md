@@ -1,1 +1,1 @@
-# image-resizer
+# Swing Image

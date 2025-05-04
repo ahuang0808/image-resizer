@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const FileHandler = require("./core/FileHandler");
 const ImageResizer = require("./core/ImageResizer");
+const ImageConverter = require("./core/ImageConverter");
 const path = require("path");
 const os = require("os");
 const { clearPreviewDir } = require("./core/utils");
@@ -13,8 +14,6 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1080,
     height: 720,
-    fullscreenable: false,
-    maximizable: false,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -33,8 +32,8 @@ app.on("before-quit", () => {
   clearPreviewDir(PREVIEW_DIR);
 });
 
-ipcMain.handle("resize-images", async (event, { filePaths, outputDir, sizeMB }) => {
-  const resizer = new ImageResizer(sizeMB);
+ipcMain.handle("resize-images", async (event, { filePaths, outputDir, sizeMB, format }) => {
+  const resizer = new ImageResizer(sizeMB, format);
   const validPaths = await resizer.collectValidImagePaths(filePaths);
 
   const results = [];
@@ -62,4 +61,26 @@ ipcMain.handle("dialog:select-files", async () => {
 ipcMain.handle("dialog:select-output-dir", async () => {
   const fileHandler = new FileHandler(win);
   return await fileHandler.selectOutputDirectory();
+});
+
+ipcMain.handle("convert-images", async (event, { filePaths, outputDir, format }) => {
+  const converter = new ImageConverter(format);
+  const validPaths = await converter.collectValidImagePaths(filePaths);
+
+  const results = [];
+  const total = validPaths.length;
+
+  for (let i = 0; i < total; i++) {
+    const inputPath = validPaths[i];
+    const output = await converter.convertSingle(inputPath, outputDir);
+    if (output) results.push(output);
+
+    // send progress back to renderer
+    event.sender.send("convert-progress", {
+      current: i + 1,
+      total,
+    });
+  }
+
+  return results;
 });

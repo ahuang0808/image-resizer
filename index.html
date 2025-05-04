@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>Image Resizer</title>
+  <title>Swing Image</title>
   <link rel="stylesheet" href="./assets/style.css">
 </head>
 
@@ -22,17 +22,49 @@
     <div class="main-layout">
       <!-- Left panel: controls -->
       <div class="left-panel">
-        <p class="note">目标大小设置为0的时候，仅会将图片转换为jpeg格式。</p>
-        <label>目标大小（MB）：<input id="sizeInput" type="number" value="9" /></label>
-
-        <div class="output-row">
-          <button id="outputBtn">选择导出目录</button>
-          <pre id="outputDir"></pre>
+        <div class="tab-bar">
+          <div class="tab active" id="tab-compress">压缩</div>
+          <div class="tab" id="tab-convert">转换</div>
+          <div class="tab" id="tab-crop">裁切</div>
+          <div class="tab tab-right" id="tab-back">返回</div>
         </div>
+        <div class="compress-config config-box">
+          <p class="note">目标大小设置为0的时候，仅会将图片转换为jpeg格式。</p>
+          <label>目标大小（MB）：<input id="sizeInput" type="number" value="9" /></label>
 
-        <button id="resizeBtn">开始压缩</button>
-        <progress id="progressBar" value="0" max="100"></progress>
-        <div id="progressText">进度：0%</div>
+          <div class="output-row">
+            <button id="outputBtn">选择导出目录</button>
+            <pre id="outputDir"></pre>
+          </div>
+
+          <div class="action-row">
+            <button id="resizeBtn">开始压缩</button>
+            <progress id="progressBar" value="0" max="100"></progress>
+            <div id="progressText">进度：0%</div>
+          </div>
+          
+        </div>
+        <!-- Convert config box (initially hidden) -->
+        <div class="convert-config config-box" style="display: none;">
+          <label>选择输出格式：
+            <select id="convertFormatSelect">
+              <option value="jpg">JPG</option>
+              <option value="png">PNG</option>
+              <option value="webp">WEBP</option>
+            </select>
+          </label>
+
+          <div class="output-row">
+            <button id="convertOutputBtn">选择导出目录</button>
+            <pre id="convertOutputDir"></pre>
+          </div>
+
+          <div class="action-row">
+            <button id="convertBtn">开始转换</button>
+            <progress id="convertProgressBar" value="0" max="100"></progress>
+            <div id="convertProgressText" class="progress-text">进度：0%</div>
+          </div>
+        </div>
       </div>
 
       <!-- Right panel: preview area -->

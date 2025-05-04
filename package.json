@@ -14,7 +14,7 @@
   },
   "build": {
     "appId": "com.ahuang0808.image-resizer",
-    "productName": "Image Resizer",
+    "productName": "Swing Image",
     "compression": "maximum",
     "files": [
       "main.js",
