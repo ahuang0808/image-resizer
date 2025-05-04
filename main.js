@@ -4,62 +4,62 @@ const ImageResizer = require("./core/ImageResizer");
 const path = require("path");
 const os = require("os");
 const { clearPreviewDir } = require("./core/utils");
+const { PREVIEW_DIR_NAME } = require("./core/config");
 
 let win;
+const PREVIEW_DIR = path.join(os.tmpdir(), PREVIEW_DIR_NAME);
 
 function createWindow() {
-    win = new BrowserWindow({
-        width: 1080,
-        height: 720,
-        fullscreenable: false,
-        maximizable: false,
-        webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false,
-        }
-    });
+  win = new BrowserWindow({
+    width: 1080,
+    height: 720,
+    fullscreenable: false,
+    maximizable: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    }
+  });
 
-    win.loadFile("index.html");
+  win.loadFile("index.html");
 }
 
 app.whenReady().then(() => {
-    const previewDir = path.join(os.tmpdir(), "image-resizer-previews");
-    clearPreviewDir(previewDir); // clear previews when starting
-    createWindow();
+  clearPreviewDir(PREVIEW_DIR);
+  createWindow();
 });
 
 app.on("before-quit", () => {
-    const previewDir = path.join(os.tmpdir(), "image-resizer-previews");
-    clearPreviewDir(previewDir); // clear previews when quiting
+  clearPreviewDir(PREVIEW_DIR);
 });
 
 ipcMain.handle("resize-images", async (event, { filePaths, outputDir, sizeMB }) => {
-    const resizer = new ImageResizer(sizeMB);
-    const validPaths = await resizer.collectValidImagePaths(filePaths);
+  const resizer = new ImageResizer(sizeMB);
+  const validPaths = await resizer.collectValidImagePaths(filePaths);
 
-    const results = [];
-    const total = validPaths.length;
+  const results = [];
+  const total = validPaths.length;
 
-    for (let i = 0; i < total; i++) {
-        const inputPath = validPaths[i];
-        const output = await resizer.processSingle(inputPath, outputDir);
-        if (output) results.push(output);
+  for (let i = 0; i < total; i++) {
+    const inputPath = validPaths[i];
+    const output = await resizer.processSingle(inputPath, outputDir);
+    if (output) results.push(output);
 
-        event.sender.send("resize-progress", {
-            current: i + 1,
-            total,
-        });
-    }
+    event.sender.send("resize-progress", {
+      current: i + 1,
+      total,
+    });
+  }
 
-    return results;
+  return results;
 });
 
 ipcMain.handle("dialog:select-files", async () => {
-    const fileHandler = new FileHandler(win);
-    return await fileHandler.selectFilesOrFolder();
+  const fileHandler = new FileHandler(win);
+  return await fileHandler.selectFilesOrFolder();
 });
 
 ipcMain.handle("dialog:select-output-dir", async () => {
-    const fileHandler = new FileHandler(win);
-    return await fileHandler.selectOutputDirectory();
+  const fileHandler = new FileHandler(win);
+  return await fileHandler.selectOutputDirectory();
 });
