@@ -10,14 +10,12 @@ const { SUPPORTED_IMAGE_EXTENSIONS, PREVIEW_DIR_NAME } = require("./core/config"
 let selectedPaths = [];
 let outputPath = "";
 
-// DOM references
 const startScreen = document.getElementById("start-screen");
 const workspaceScreen = document.getElementById("workspace-screen");
 const startSelectBtn = document.getElementById("startSelectBtn");
 const startBox = document.querySelector(".app-start-box");
 const previewGrid = document.getElementById("previewGrid");
 
-// Compress tab
 const compressBtn = document.getElementById("compressBtn");
 const compressSizeInput = document.getElementById("compressSizeInput");
 const compressOutputBtn = document.getElementById("compressOutputBtn");
@@ -25,56 +23,48 @@ const compressOutputDir = document.getElementById("compressOutputDir");
 const compressProgressBar = document.getElementById("compressProgressBar");
 const compressProgressText = document.getElementById("compressProgressText");
 
-// Convert tab
 const convertBtn = document.getElementById("convertBtn");
 const convertOutputBtn = document.getElementById("convertOutputBtn");
 const convertOutputDir = document.getElementById("convertOutputDir");
 const convertFormatSelect = document.getElementById("convertFormatSelect");
 
-// Tabs
 const tabCompress = document.getElementById("tab-compress");
 const tabConvert = document.getElementById("tab-convert");
 const tabCrop = document.getElementById("tab-crop");
 const tabBack = document.getElementById("tab-back");
 
-// Prepare preview directory
 const previewDir = path.join(os.tmpdir(), PREVIEW_DIR_NAME);
 ensurePreviewDirExists(previewDir);
 
-// Drag and drop events
+// Drag and drop
 startBox.addEventListener("dragover", (e) => {
   e.preventDefault();
   startBox.classList.add("dragging");
 });
-
 startBox.addEventListener("dragleave", () => {
   startBox.classList.remove("dragging");
 });
-
 startBox.addEventListener("drop", (e) => {
   e.preventDefault();
   startBox.classList.remove("dragging");
-
   const files = Array.from(e.dataTransfer.files);
   if (files.length === 0) return;
-
   const rawPaths = files.map(file => webUtils.getPathForFile(file));
   if (rawPaths.length === 0) return;
-
   selectedPaths = FileHandler.collectAllImagePaths(rawPaths);
   switchToWorkspace();
 });
 
-// Manual select
+// File dialog select
 startSelectBtn.addEventListener("click", async () => {
   const paths = await ipcRenderer.invoke("dialog:select-files");
-  if (paths && paths.length > 0) {
+  if (paths?.length) {
     selectedPaths = FileHandler.collectAllImagePaths(paths);
     switchToWorkspace();
   }
 });
 
-// Compress output directory
+// Compress
 compressOutputBtn.addEventListener("click", async () => {
   const dir = await ipcRenderer.invoke("dialog:select-output-dir");
   if (dir) {
@@ -82,74 +72,57 @@ compressOutputBtn.addEventListener("click", async () => {
     compressOutputDir.textContent = dir;
   }
 });
-
-// Compress action
 compressBtn.addEventListener("click", async () => {
   const size = Number(compressSizeInput.value);
   if (!outputPath) return alert("请选择导出路径！");
-  if (selectedPaths.length === 0) return alert("请选择图片！");
-
+  if (!selectedPaths.length) return alert("请选择图片！");
   compressProgressBar.value = 0;
   compressProgressText.textContent = "进度：0%";
-
   const results = await ipcRenderer.invoke("compress-images", {
     filePaths: selectedPaths,
     outputDir: outputPath,
     sizeMB: size
   });
-
   compressProgressText.textContent = `完成！共处理 ${results.length} 张图片。`;
 });
-
 ipcRenderer.on("compress-progress", (event, { current, total }) => {
   const percent = Math.floor((current / total) * 100);
   compressProgressBar.value = percent;
   compressProgressText.textContent = `进度：${percent}%（${current}/${total}）`;
 });
 
-// Convert output directory
+// Convert
 convertOutputBtn.addEventListener("click", async () => {
   const dir = await ipcRenderer.invoke("dialog:select-output-dir");
   if (dir) convertOutputDir.textContent = dir;
 });
-
-// Convert action
 convertBtn.addEventListener("click", async () => {
   const format = convertFormatSelect.value;
   const output = convertOutputDir.textContent;
-
   if (!output) return alert("请选择导出路径！");
-  if (selectedPaths.length === 0) return alert("请选择图片！");
-
+  if (!selectedPaths.length) return alert("请选择图片！");
   const bar = document.getElementById("convertProgressBar");
   const text = document.getElementById("convertProgressText");
   bar.value = 0;
   text.textContent = "进度：0%";
-
   const results = await ipcRenderer.invoke("convert-images", {
     filePaths: selectedPaths,
     outputDir: output,
     format
   });
-
   text.textContent = `完成！共转换 ${results.length} 张图片。`;
 });
-
 ipcRenderer.on("convert-progress", (event, { current, total }) => {
   const percent = Math.floor((current / total) * 100);
   document.getElementById("convertProgressBar").value = percent;
   document.getElementById("convertProgressText").textContent = `进度：${percent}%（${current}/${total}）`;
 });
 
-// Tab switching
+// Tabs
 function activateTab(selectedTab) {
   document.querySelectorAll(".app-tab").forEach(tab => tab.classList.remove("active"));
   selectedTab.classList.add("active");
-
-  document.querySelectorAll(".app-compress-config, .app-convert-config, .app-crop-config").forEach(box => {
-    box.classList.add("hidden");
-  });
-
+  document.querySelectorAll(".app-compress-config, .app-convert-config, .app-crop-config").forEach(box => box.classList.add("hidden"));
   if (selectedTab.id === "tab-compress") {
     document.querySelector(".app-compress-config").classList.remove("hidden");
   } else if (selectedTab.id === "tab-convert") {
@@ -158,7 +131,6 @@ function activateTab(selectedTab) {
     document.querySelector(".app-crop-config")?.classList.remove("hidden");
   }
 }
-
 tabCompress.addEventListener("click", () => activateTab(tabCompress));
 tabConvert.addEventListener("click", () => activateTab(tabConvert));
 tabCrop.addEventListener("click", () => activateTab(tabCrop));
@@ -167,7 +139,7 @@ tabBack.addEventListener("click", () => {
   workspaceScreen.classList.remove("active");
 });
 
-// Switch to main workspace screen
+// Switch screen
 function switchToWorkspace() {
   startScreen.classList.remove("active");
   workspaceScreen.classList.add("active");
@@ -175,17 +147,15 @@ function switchToWorkspace() {
   activateTab(tabCompress);
 }
 
-// Build add card
+// Add-card
 function createAddCard() {
   const addCard = document.createElement("div");
   addCard.className = "image-card add-card";
   addCard.innerHTML = `<div class="add-icon">+</div>`;
   addCard.addEventListener("click", async () => {
-    // Open file/folder selection dialog
     const paths = await ipcRenderer.invoke("dialog:select-files");
-    if (paths && paths.length > 0) {
+    if (paths?.length) {
       const newPaths = FileHandler.collectAllImagePaths(paths);
-      // Insert new items at the beginning
       selectedPaths = [...newPaths, ...selectedPaths];
       renderPreview(selectedPaths);
     }
@@ -193,11 +163,10 @@ function createAddCard() {
   return addCard;
 }
 
-// Render image preview cards
+// Render previews
 async function renderPreview(paths) {
-  const addCard = createAddCard();
   previewGrid.innerHTML = "";
-  previewGrid.appendChild(addCard);
+  previewGrid.appendChild(createAddCard());
 
   for (const filePath of paths) {
     const ext = path.extname(filePath).toLowerCase();
@@ -222,18 +191,19 @@ async function renderPreview(paths) {
     wrapper.className = "image-wrapper";
 
     const img = document.createElement("img");
+    let displayPath = filePath;
 
     try {
       if (ext === ".tif" || ext === ".tiff") {
         const previewPath = await generatePreview(filePath, previewDir);
-        img.src = previewPath
-          ? `file://${previewPath}`
-          : `file://${path.join(__dirname, "assets", "no-preview.png")}`;
+        displayPath = previewPath || path.join(__dirname, "assets", "no-preview.png");
+        img.src = `file://${displayPath}`;
       } else {
         img.src = `file://${filePath}`;
       }
-    } catch (err) {
-      img.src = `file://${path.join(__dirname, "assets", "no-preview.png")}`;
+    } catch {
+      displayPath = path.join(__dirname, "assets", "no-preview.png");
+      img.src = `file://${displayPath}`;
     }
 
     img.alt = path.basename(filePath);
@@ -246,6 +216,61 @@ async function renderPreview(paths) {
     card.appendChild(toolbar);
     card.appendChild(wrapper);
     card.appendChild(meta);
+
+    card.addEventListener("click", () => showLargeImage(displayPath));
     previewGrid.appendChild(card);
   }
 }
+
+// Show full image
+function showLargeImage(imagePath) {
+  currentPreviewIndex = selectedPaths.findIndex(p => imagePath.includes(path.basename(p)));
+  const overlay = document.getElementById("imageOverlay");
+  const img = document.getElementById("overlayImage");
+  img.src = `file://${imagePath}`;
+  overlay.classList.remove("hidden");
+}
+
+document.getElementById("imageOverlay").addEventListener("click", () => {
+  document.getElementById("imageOverlay").classList.add("hidden");
+});
+
+document.addEventListener("keydown", (event) => {
+  const overlay = document.getElementById("imageOverlay");
+  const img = document.getElementById("overlayImage");
+
+  if (overlay.classList.contains("hidden")) return;
+
+  if (event.key === "Escape") {
+    overlay.classList.add("hidden");
+    return;
+  }
+
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    if (selectedPaths.length === 0) return;
+
+    if (event.key === "ArrowLeft" && currentPreviewIndex > 0) {
+      currentPreviewIndex--;
+    } else if (event.key === "ArrowRight" && currentPreviewIndex < selectedPaths.length - 1) {
+      currentPreviewIndex++;
+    } else {
+      return; // At boundary: do nothing
+    }
+
+    const targetPath = selectedPaths[currentPreviewIndex];
+    const ext = path.extname(targetPath).toLowerCase();
+
+    // 👉 For .tif: use pre-generated preview image
+    if (ext === ".tif" || ext === ".tiff") {
+      const base = path.basename(targetPath, ext);
+      const previewPath = path.join(previewDir, `${base}_preview.jpg`);
+      if (fs.existsSync(previewPath)) {
+        img.src = `file://${previewPath}`;
+      } else {
+        img.src = `file://${path.join(__dirname, "assets", "no-preview.png")}`;
+      }
+    } else {
+      img.src = `file://${targetPath}`;
+    }
+  }
+});

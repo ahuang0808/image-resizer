@@ -2,7 +2,6 @@ const sharp = require("sharp");
 const path = require("path");
 const fs = require("fs");
 const {
-  PREVIEW_WIDTH,
   PREVIEW_QUALITY
 } = require("./config");
 
@@ -38,7 +37,6 @@ async function generatePreview(inputPath, previewDir) {
 
   try {
     await sharp(inputPath)
-      .resize({ width: PREVIEW_WIDTH })
       .jpeg({ quality: PREVIEW_QUALITY })
       .toFile(outputPath);
     return outputPath;
