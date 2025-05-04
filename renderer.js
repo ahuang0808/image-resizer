@@ -175,9 +175,29 @@ function switchToWorkspace() {
   activateTab(tabCompress);
 }
 
+// Build add card
+function createAddCard() {
+  const addCard = document.createElement("div");
+  addCard.className = "image-card add-card";
+  addCard.innerHTML = `<div class="add-icon">+</div>`;
+  addCard.addEventListener("click", async () => {
+    // Open file/folder selection dialog
+    const paths = await ipcRenderer.invoke("dialog:select-files");
+    if (paths && paths.length > 0) {
+      const newPaths = FileHandler.collectAllImagePaths(paths);
+      // Insert new items at the beginning
+      selectedPaths = [...newPaths, ...selectedPaths];
+      renderPreview(selectedPaths);
+    }
+  });
+  return addCard;
+}
+
 // Render image preview cards
 async function renderPreview(paths) {
+  const addCard = createAddCard();
   previewGrid.innerHTML = "";
+  previewGrid.appendChild(addCard);
 
   for (const filePath of paths) {
     const ext = path.extname(filePath).toLowerCase();
