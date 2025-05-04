@@ -1,8 +1,9 @@
-const { ipcRenderer } = require("electron");
+const { ipcRenderer, webUtils } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
+const FileHandler = require("./core/FileHandler");
 const { generatePreview, ensurePreviewDirExists } = require("./core/utils");
 const { SUPPORTED_IMAGE_EXTENSIONS, PREVIEW_DIR_NAME } = require("./core/config");
 
@@ -57,7 +58,10 @@ startBox.addEventListener("drop", (e) => {
   const files = Array.from(e.dataTransfer.files);
   if (files.length === 0) return;
 
-  selectedPaths = files.map(f => f.path);
+  const rawPaths = files.map(file => webUtils.getPathForFile(file));
+  if (rawPaths.length === 0) return;
+
+  selectedPaths = FileHandler.collectAllImagePaths(rawPaths);
   switchToWorkspace();
 });
 
@@ -65,7 +69,7 @@ startBox.addEventListener("drop", (e) => {
 startSelectBtn.addEventListener("click", async () => {
   const paths = await ipcRenderer.invoke("dialog:select-files");
   if (paths && paths.length > 0) {
-    selectedPaths = paths;
+    selectedPaths = FileHandler.collectAllImagePaths(paths);
     switchToWorkspace();
   }
 });
