@@ -67,9 +67,34 @@ function clearPreviewDir(previewDir) {
   }
 }
 
+/**
+ * Select output directory and update label text.
+ * @param {HTMLElement} labelElement
+ */
+async function selectOutputDirectory(labelElement) {
+  const dir = await ipcRenderer.invoke("dialog:select-output-dir");
+  if (dir) labelElement.textContent = dir;
+}
+
+/**
+ * Set up progress bar and text update listener.
+ * @param {string} channel - IPC channel name.
+ * @param {HTMLProgressElement} progressBar
+ * @param {HTMLElement} progressText
+ */
+function setupProgressListener(channel, progressBar, progressText) {
+  ipcRenderer.on(channel, (event, { current, total }) => {
+    const percent = Math.floor((current / total) * 100);
+    progressBar.value = percent;
+    progressText.textContent = `进度：${percent}%（${current}/${total}）`;
+  });
+}
+
 module.exports = {
   getFormattedTimestamp,
   generatePreview,
   ensurePreviewDirExists,
-  clearPreviewDir
+  clearPreviewDir,
+  selectOutputDirectory,
+  setupProgressListener,
 };

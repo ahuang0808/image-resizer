@@ -6,56 +6,24 @@ const { getFormattedTimestamp } = require("./utils");
 
 class ImageConverter {
   constructor(format = "jpg") {
-    this.outputFormat = format.toLowerCase(); // jpg / png / webp
+    this.outputFormat = format.toLowerCase(); // 'jpg' | 'png' | 'webp'
   }
 
-  log(msg) {
-    if (DEBUG) console.log(`[ImageConverter] ${msg}`);
-  }
-
-  async processBatch(inputPaths, outputDir) {
-    const results = [];
-
-    for (const inputPath of inputPaths) {
-      const stat = await fs.promises.stat(inputPath);
-      if (stat.isDirectory()) {
-        const files = await fs.promises.readdir(inputPath);
-        const nested = files.map(f => path.join(inputPath, f));
-        const nestedResults = await this.processBatch(nested, outputDir);
-        results.push(...nestedResults);
-      } else if (SUPPORTED_IMAGE_EXTENSIONS.includes(path.extname(inputPath).toLowerCase())) {
-        const output = await this.convertSingle(inputPath, outputDir);
-        if (output) results.push(output);
-      }
+  /**
+   * Conditional logger for debug mode
+   * @param {string} message
+   */
+  log(message) {
+    if (DEBUG) {
+      console.log(`[ImageConverter] ${message}`);
     }
-
-    return results;
   }
 
-  async convertSingle(inputPath, outputDir) {
-    const ext = path.extname(inputPath);
-    const base = path.basename(inputPath, ext);
-    const timestamp = getFormattedTimestamp();
-    const outputPath = path.join(outputDir, `${base}_${timestamp}.${this.outputFormat}`);
-
-    const imageBuffer = await fs.promises.readFile(inputPath);
-    this.log(`Converting: ${inputPath}`);
-
-    let outputBuffer;
-
-    // Convert to target format using highest quality settings
-    if (this.outputFormat === "png") {
-      outputBuffer = await sharp(imageBuffer).rotate().png({ compressionLevel: 0 }).toBuffer();
-    } else if (this.outputFormat === "webp") {
-      outputBuffer = await sharp(imageBuffer).rotate().webp({ quality: 100 }).toBuffer();
-    } else {
-      outputBuffer = await sharp(imageBuffer).rotate().jpeg({ quality: 100 }).toBuffer();
-    }
-
-    await fs.promises.writeFile(outputPath, outputBuffer);
-    return outputPath;
-  }
-
+  /**
+   * Recursively collect all valid image paths
+   * @param {string[]} inputPaths
+   * @returns {Promise<string[]>}
+   */
   async collectValidImagePaths(inputPaths) {
     const allPaths = [];
 
@@ -64,9 +32,9 @@ class ImageConverter {
         try {
           const stat = await fs.promises.stat(inputPath);
           if (stat.isDirectory()) {
-            const nested = await fs.promises.readdir(inputPath);
-            const fullPaths = nested.map((f) => path.join(inputPath, f));
-            await walk(fullPaths);
+            const entries = await fs.promises.readdir(inputPath);
+            const nestedPaths = entries.map(f => path.join(inputPath, f));
+            await walk(nestedPaths);
           } else if (SUPPORTED_IMAGE_EXTENSIONS.includes(path.extname(inputPath).toLowerCase())) {
             allPaths.push(inputPath);
           }
@@ -79,8 +47,72 @@ class ImageConverter {
     await walk(inputPaths);
     return allPaths;
   }
+
+  /**
+   * Convert a batch of images to the target format
+   * @param {string[]} inputPaths
+   * @param {string} outputDir
+   * @returns {Promise<string[]>}
+   */
+  async processBatch(inputPaths, outputDir) {
+    const results = [];
+
+    for (const inputPath of inputPaths) {
+      try {
+        const stat = await fs.promises.stat(inputPath);
+        if (stat.isDirectory()) {
+          const nested = await fs.promises.readdir(inputPath);
+          const fullPaths = nested.map(f => path.join(inputPath, f));
+          const nestedResults = await this.processBatch(fullPaths, outputDir);
+          results.push(...nestedResults);
+        } else if (SUPPORTED_IMAGE_EXTENSIONS.includes(path.extname(inputPath).toLowerCase())) {
+          const result = await this.convertSingleImage(inputPath, outputDir);
+          if (result) results.push(result);
+        }
+      } catch (err) {
+        this.log(`Error reading ${inputPath}: ${err.message}`);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Convert a single image to the target format
+   * @param {string} inputPath
+   * @param {string} outputDir
+   * @returns {Promise<string | null>}
+   */
+  async convertSingleImage(inputPath, outputDir) {
+    try {
+      const ext = path.extname(inputPath);
+      let base = path.basename(inputPath, ext);
+      base = base.replace(/_(compressed|converted|cropped)$/, ""); // sanitize
+
+      const timestamp = getFormattedTimestamp();
+      const outputPath = path.join(outputDir, `${base}_${timestamp}_converted.${this.outputFormat}`);
+
+      this.log(`Converting: ${inputPath} → ${this.outputFormat}`);
+
+      const imageBuffer = await fs.promises.readFile(inputPath);
+      const sharpInstance = sharp(imageBuffer).rotate(); // auto-rotate using EXIF
+
+      let outputBuffer;
+      if (this.outputFormat === "png") {
+        outputBuffer = await sharpInstance.png({ compressionLevel: 0 }).toBuffer();
+      } else if (this.outputFormat === "webp") {
+        outputBuffer = await sharpInstance.webp({ quality: 100 }).toBuffer();
+      } else {
+        outputBuffer = await sharpInstance.jpeg({ quality: 100 }).toBuffer();
+      }
+
+      await fs.promises.writeFile(outputPath, outputBuffer);
+      return outputPath;
+    } catch (error) {
+      this.log(`Failed to convert ${inputPath}: ${error.message}`);
+      return null;
+    }
+  }
 }
-
-
 
 module.exports = ImageConverter;

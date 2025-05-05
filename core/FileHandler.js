@@ -5,23 +5,21 @@ const { SUPPORTED_IMAGE_EXTENSIONS } = require("./config");
 
 class FileHandler {
   /**
-   * Open file or folder selection dialog (multi-select).
-   * @returns {Promise<string[] | null>}
+   * Open a file/folder picker dialog.
+   * @returns {Promise<string[] | null>} Selected file or folder paths, or null if cancelled.
    */
   async selectFilesOrFolder() {
     const result = await dialog.showOpenDialog({
       properties: ["openFile", "openDirectory", "multiSelections"],
-      filters: [
-        { name: "Images", extensions: SUPPORTED_IMAGE_EXTENSIONS }
-      ]
+      filters: [{ name: "Images", extensions: SUPPORTED_IMAGE_EXTENSIONS }]
     });
 
     return result.canceled ? null : result.filePaths;
   }
 
   /**
-   * Open directory selection dialog for output path.
-   * @returns {Promise<string | null>}
+   * Open a folder picker dialog for selecting output directory.
+   * @returns {Promise<string | null>} Selected directory path, or null if cancelled.
    */
   async selectOutputDirectory() {
     const result = await dialog.showOpenDialog({
@@ -32,28 +30,33 @@ class FileHandler {
   }
 
   /**
-   * Recursively collect all image file paths from input paths (files or folders).
-   * @param {string[]} inputPaths
-   * @returns {string[]} image file paths
+   * Recursively walk given paths to collect all valid image files.
+   * @param {string[]} inputPaths - Paths of files or folders.
+   * @returns {string[]} Valid image file paths.
    */
   static collectAllImagePaths(inputPaths) {
-    const allPaths = [];
+    const imagePaths = [];
 
-    const walk = (currentPath) => {
-      const stat = fs.statSync(currentPath);
-      if (stat.isDirectory()) {
-        const entries = fs.readdirSync(currentPath);
-        entries.forEach(entry => walk(path.join(currentPath, entry)));
-      } else {
-        const ext = path.extname(currentPath).toLowerCase();
-        if (SUPPORTED_IMAGE_EXTENSIONS.includes(ext)) {
-          allPaths.push(currentPath);
+    const walkDirectory = (currentPath) => {
+      try {
+        const stat = fs.statSync(currentPath);
+
+        if (stat.isDirectory()) {
+          const entries = fs.readdirSync(currentPath);
+          entries.forEach(entry => walkDirectory(path.join(currentPath, entry)));
+        } else {
+          const ext = path.extname(currentPath).toLowerCase();
+          if (SUPPORTED_IMAGE_EXTENSIONS.includes(ext)) {
+            imagePaths.push(currentPath);
+          }
         }
+      } catch (error) {
+        console.error(`Failed to access path: ${currentPath}`, error);
       }
     };
 
-    inputPaths.forEach(p => walk(p));
-    return allPaths;
+    inputPaths.forEach(p => walkDirectory(p));
+    return imagePaths;
   }
 }
 

@@ -45,7 +45,7 @@ ipcMain.handle("compress-images", async (event, { filePaths, outputDir, sizeMB, 
 
   for (let i = 0; i < total; i++) {
     const inputPath = validPaths[i];
-    const output = await compresor.processSingle(inputPath, outputDir);
+    const output = await compresor.processSingleImage(inputPath, outputDir);
     if (output) results.push(output);
 
     event.sender.send("compress-progress", {
@@ -76,7 +76,7 @@ ipcMain.handle("convert-images", async (event, { filePaths, outputDir, format })
 
   for (let i = 0; i < total; i++) {
     const inputPath = validPaths[i];
-    const output = await converter.convertSingle(inputPath, outputDir);
+    const output = await converter.convertSingleImage(inputPath, outputDir);
     if (output) results.push(output);
 
     // send progress back to renderer
@@ -98,7 +98,7 @@ ipcMain.handle("crop-images", async (event, { edits, outputDir }) => {
   for (let i = 0; i < total; i++) {
     const { filePath, cropData, rotation } = edits[i];
 
-    const output = await cropper.cropSingle(filePath, outputDir, cropData, rotation);
+    const output = await cropper.cropSingleImage(filePath, outputDir, cropData, rotation);
     if (output) results.push(output);
 
     event.sender.send("crop-progress", {

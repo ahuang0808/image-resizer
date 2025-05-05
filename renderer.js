@@ -4,9 +4,10 @@ const path = require("path");
 const os = require("os");
 
 const FileHandler = require("./core/FileHandler");
-const { generatePreview, ensurePreviewDirExists } = require("./core/utils");
+const { generatePreview, ensurePreviewDirExists, selectOutputDirectory, setupProgressListener } = require("./core/utils");
 const { SUPPORTED_IMAGE_EXTENSIONS, PREVIEW_DIR_NAME } = require("./core/config");
 
+// ==================== global vars ====================
 let selectedPaths = [];
 let currentPreviewIndex = -1;
 let selectedCropRatio = "free";
@@ -15,24 +16,34 @@ let currentCropper = null;
 let cropEdits = {}; // key: imagePath, value: { cropData, rotation }
 let editingPath = null;
 
+// ==================== DOM elements ====================
 const startScreen = document.getElementById("start-screen");
 const workspaceScreen = document.getElementById("workspace-screen");
 const startSelectBtn = document.getElementById("startSelectBtn");
 const startBox = document.querySelector(".app-start-box");
 const previewGrid = document.getElementById("previewGrid");
 
+// Compress
 const compressBtn = document.getElementById("compressBtn");
 const compressSizeInput = document.getElementById("compressSizeInput");
 const compressOutputBtn = document.getElementById("compressOutputBtn");
 const compressOutputDir = document.getElementById("compressOutputDir");
 const compressProgressBar = document.getElementById("compressProgressBar");
 const compressProgressText = document.getElementById("compressProgressText");
+compressOutputBtn.addEventListener("click", () => selectOutputDirectory(compressOutputDir));
+setupProgressListener("compress-progress", compressProgressBar, compressProgressText);
 
+// Convert
 const convertBtn = document.getElementById("convertBtn");
 const convertOutputBtn = document.getElementById("convertOutputBtn");
 const convertOutputDir = document.getElementById("convertOutputDir");
+const convertProgressBar = document.getElementById("convertProgressBar");
+const convertProgressText = document.getElementById("convertProgressText");
 const convertFormatSelect = document.getElementById("convertFormatSelect");
+convertOutputBtn.addEventListener("click", () => selectOutputDirectory(convertOutputDir));
+setupProgressListener("convert-progress", convertProgressBar, convertProgressText);
 
+// Crop
 const cropBtn = document.getElementById("cropBtn");
 const cropOutputBtn = document.getElementById("cropOutputBtn");
 const cropOutputDir = document.getElementById("cropOutputDir");
@@ -44,17 +55,21 @@ const cropEditorContainer = document.getElementById("cropEditorContainer");
 const cropperImage = document.getElementById("cropperImage");
 const confirmCropBtn = document.getElementById("confirmCropBtn");
 const ratioButtons = document.querySelectorAll(".ratio-btn");
+cropOutputBtn.addEventListener("click", () => selectOutputDirectory(cropOutputDir));
+setupProgressListener("crop-progress", cropProgressBar, cropProgressText);
 
-
+// Tab
 const tabCompress = document.getElementById("tab-compress");
 const tabConvert = document.getElementById("tab-convert");
 const tabCrop = document.getElementById("tab-crop");
 const tabBack = document.getElementById("tab-back");
 
+// ==================== Init ====================
 const previewDir = path.join(os.tmpdir(), PREVIEW_DIR_NAME);
 ensurePreviewDirExists(previewDir);
 
-// Drag and drop
+// ==================== File Ops ====================
+// Drag & Drop
 startBox.addEventListener("dragover", (e) => {
   e.preventDefault();
   startBox.classList.add("dragging");
@@ -73,7 +88,7 @@ startBox.addEventListener("drop", (e) => {
   switchToWorkspace();
 });
 
-// File dialog select
+// Selct files
 startSelectBtn.addEventListener("click", async () => {
   const paths = await ipcRenderer.invoke("dialog:select-files");
   if (paths?.length) {
@@ -82,13 +97,8 @@ startSelectBtn.addEventListener("click", async () => {
   }
 });
 
-// Compress
-compressOutputBtn.addEventListener("click", async () => {
-  const dir = await ipcRenderer.invoke("dialog:select-output-dir");
-  if (dir) {
-    compressOutputDir.textContent = dir;
-  }
-});
+// ==================== Compress ====================
+
 compressBtn.addEventListener("click", async () => {
   const size = Number(compressSizeInput.value);
   if (!compressOutputDir.textContent) return alert("请选择导出路径！");
@@ -102,19 +112,8 @@ compressBtn.addEventListener("click", async () => {
   });
   compressProgressText.textContent = `完成！共处理 ${results.length} 张图片。`;
 });
-ipcRenderer.on("compress-progress", (event, { current, total }) => {
-  const percent = Math.floor((current / total) * 100);
-  compressProgressBar.value = percent;
-  compressProgressText.textContent = `进度：${percent}%（${current}/${total}）`;
-});
 
-// Convert
-convertOutputBtn.addEventListener("click", async () => {
-  const dir = await ipcRenderer.invoke("dialog:select-output-dir");
-  if (dir) {
-    convertOutputDir.textContent = dir;
-  }
-});
+// ==================== Convert ====================
 convertBtn.addEventListener("click", async () => {
   const format = convertFormatSelect.value;
   if (!convertOutputDir.textContent) return alert("请选择导出路径！");
@@ -130,80 +129,14 @@ convertBtn.addEventListener("click", async () => {
   });
   text.textContent = `完成！共转换 ${results.length} 张图片。`;
 });
-ipcRenderer.on("convert-progress", (event, { current, total }) => {
-  const percent = Math.floor((current / total) * 100);
-  document.getElementById("convertProgressBar").value = percent;
-  document.getElementById("convertProgressText").textContent = `进度：${percent}%（${current}/${total}）`;
-});
 
-// Crop
-cropOutputBtn.addEventListener("click", async () => {
-  const dir = await ipcRenderer.invoke("dialog:select-output-dir");
-  if (dir) {
-    cropOutputDir.textContent = dir;
-  }
-});
-
-
-
-window.addEventListener("resize", () => {
-  if (currentCropper && !cropEditorContainer.classList.contains("hidden")) {
-    const rotation = selectedRotation;
-
-    currentCropper.destroy();
-
-    currentCropper = new Cropper(cropperImage, {
-      aspectRatio: getAspectRatioValue(selectedCropRatio),
-      rotatable: true,
-      viewMode: 1,
-      responsive: true,
-      restore: false,
-      autoCropArea: 0.8,
-      checkOrientation: false,
-      ready() {
-        if (rotation) currentCropper.rotateTo(rotation);
-        // ⚠️ Don't call setData() to avoid distortion
-      }
-    });
-  }
-});
-
-// Esc or click button to exit crop mode
-function exitCropEditor() {
-  cropEditorContainer.classList.add("hidden");
-  previewGrid.classList.remove("hidden");
-  if (currentCropper) {
-    currentCropper.destroy();
-    currentCropper = null;
-  }
+// ==================== Crop ====================
+function getAspectRatioValue(ratio, imageWidth = 1, imageHeight = 1) {
+  if (ratio === "free") return NaN;
+  if (ratio === "original") return imageWidth / imageHeight;
+  const [w, h] = ratio.split("/").map(Number);
+  return w / h;
 }
-
-document.getElementById("exitCropEditorBtn").addEventListener("click", exitCropEditor);
-
-// Support esc
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !cropEditorContainer.classList.contains("hidden")) {
-    exitCropEditor();
-  }
-});
-
-confirmCropBtn.addEventListener("click", () => {
-  if (!currentCropper || !editingPath) return;
-
-  cropEdits[editingPath] = {
-    cropData: currentCropper.getData(true),
-    canvasData: currentCropper.getCanvasData(),
-    rotation: selectedRotation
-  };
-
-  exitCropEditor();
-});
-
-ipcRenderer.on("crop-progress", (event, { current, total }) => {
-  const percent = Math.floor((current / total) * 100);
-  cropProgressBar.value = percent;
-  cropProgressText.textContent = `进度：${percent}%（${current}/${total}）`;
-});
 
 function updateRatioButtons(selected) {
   ratioButtons.forEach(btn => {
@@ -211,45 +144,17 @@ function updateRatioButtons(selected) {
   });
 }
 
-ratioButtons.forEach(button => {
-  button.addEventListener("click", () => {
-    const newRatio = button.dataset.ratio;
-    selectedCropRatio = newRatio;
-    updateRatioButtons(newRatio);
-
-    if (currentCropper) {
-      currentCropper.setAspectRatio(getAspectRatioValue(newRatio));
-
-      // Reset crop box to 80% if free or original
-      if (newRatio === "free" || newRatio === "original") {
-        const containerData = currentCropper.getContainerData();
-        const boxWidth = containerData.width * 0.8;
-        const boxHeight = containerData.height * 0.8;
-        const x = (containerData.width - boxWidth) / 2;
-        const y = (containerData.height - boxHeight) / 2;
-
-        currentCropper.setCropBoxData({ left: x, top: y, width: boxWidth, height: boxHeight });
-      }
-    }
-  });
-});
-
-cropRotateSlider.addEventListener("input", () => {
-  const angle = parseInt(cropRotateSlider.value, 10);
-  cropRotateValue.textContent = `${angle}°`;
-  selectedRotation = angle;
-
+function exitCropEditor() {
+  cropEditorContainer.classList.add("hidden");
+  previewGrid.classList.remove("hidden");
   if (currentCropper) {
-    currentCropper.rotateTo(angle);
+    currentCropper.destroy();
+    currentCropper = null;
   }
-});
-
-// Convert crop ratio string to numeric value (e.g., "4/3" → 1.33)
-function getAspectRatioValue(ratio, imageWidth = 1, imageHeight = 1) {
-  if (ratio === "free") return NaN;
-  if (ratio === "original") return imageWidth / imageHeight;
-  const [w, h] = ratio.split("/").map(Number);
-  return w / h;
+  editingPath = null;
+  selectedRotation = 0;
+  cropRotateSlider.value = 0;
+  cropRotateValue.textContent = "0°";
 }
 
 function enterCropEditor(filePath) {
@@ -276,12 +181,11 @@ function enterCropEditor(filePath) {
 
     const existing = cropEdits[filePath];
 
-    // ✅ default to original if no previous crop
     if (!existing) {
       selectedCropRatio = "original";
       updateRatioButtons("original");
     } else {
-      selectedCropRatio = "free"; // edited image → show as freeform
+      selectedCropRatio = "free";
       updateRatioButtons("free");
     }
 
@@ -307,7 +211,6 @@ function enterCropEditor(filePath) {
       cropend() {
         const currentBox = currentCropper.getCropBoxData();
 
-        // Only consider as freeform if size changed (not just moved)
         if (
           Math.abs(currentBox.width - previousCropBox.width) > 1 ||
           Math.abs(currentBox.height - previousCropBox.height) > 1
@@ -316,7 +219,6 @@ function enterCropEditor(filePath) {
           updateRatioButtons("free");
         }
 
-        // Update previous crop box
         previousCropBox = currentBox;
       }
     });
@@ -325,18 +227,50 @@ function enterCropEditor(filePath) {
   };
 }
 
-function exitCropEditor() {
-  cropEditorContainer.classList.add("hidden");
-  previewGrid.classList.remove("hidden");
+// Crop listener
+ratioButtons.forEach(button => {
+  button.addEventListener("click", () => {
+    const newRatio = button.dataset.ratio;
+    selectedCropRatio = newRatio;
+    updateRatioButtons(newRatio);
+
+    if (currentCropper) {
+      currentCropper.setAspectRatio(getAspectRatioValue(newRatio));
+
+      if (newRatio === "free" || newRatio === "original") {
+        const containerData = currentCropper.getContainerData();
+        const boxWidth = containerData.width * 0.8;
+        const boxHeight = containerData.height * 0.8;
+        const x = (containerData.width - boxWidth) / 2;
+        const y = (containerData.height - boxHeight) / 2;
+
+        currentCropper.setCropBoxData({ left: x, top: y, width: boxWidth, height: boxHeight });
+      }
+    }
+  });
+});
+
+cropRotateSlider.addEventListener("input", () => {
+  const angle = parseInt(cropRotateSlider.value, 10);
+  cropRotateValue.textContent = `${angle}°`;
+  selectedRotation = angle;
+
   if (currentCropper) {
-    currentCropper.destroy();
-    currentCropper = null;
+    currentCropper.rotateTo(angle);
   }
-  editingPath = null;
-  selectedRotation = 0;
-  cropRotateSlider.value = 0;
-  cropRotateValue.textContent = "0°";
-}
+});
+
+confirmCropBtn.addEventListener("click", () => {
+  if (!currentCropper || !editingPath) return;
+
+  cropEdits[editingPath] = {
+    cropData: currentCropper.getData(true),
+    canvasData: currentCropper.getCanvasData(),
+    rotation: selectedRotation
+  };
+
+  exitCropEditor();
+});
 
 cropBtn.addEventListener("click", async () => {
   const output = cropOutputDir.textContent;
@@ -363,13 +297,7 @@ cropBtn.addEventListener("click", async () => {
   cropProgressText.textContent = `完成！共裁切 ${results.length} 张图片。`;
 });
 
-document.addEventListener("keydown", (e) => {
-  if (!cropEditorContainer.classList.contains("hidden") && e.key === "Enter") {
-    confirmCropBtn.click();
-  }
-});
-
-// Tabs
+// ==================== Tab ====================
 function activateTab(selectedTab) {
   document.querySelectorAll(".app-tab").forEach(tab => tab.classList.remove("active"));
   selectedTab.classList.add("active");
@@ -382,6 +310,7 @@ function activateTab(selectedTab) {
     document.querySelector(".app-crop-config")?.classList.remove("hidden");
   }
 }
+
 tabCompress.addEventListener("click", () => activateTab(tabCompress));
 tabConvert.addEventListener("click", () => activateTab(tabConvert));
 tabCrop.addEventListener("click", () => activateTab(tabCrop));
@@ -391,20 +320,11 @@ tabBack.addEventListener("click", () => {
   exitCropEditor()
 });
 
-// Utility: get active tab
 function getActiveTabId() {
   return document.querySelector(".app-tab.active")?.id || "";
 }
 
-// Switch screen
-function switchToWorkspace() {
-  startScreen.classList.remove("active");
-  workspaceScreen.classList.add("active");
-  renderPreview(selectedPaths);
-  activateTab(tabCompress);
-}
-
-// Add-card
+// ==================== Preview Grid ====================
 function createAddCard() {
   const addCard = document.createElement("div");
   addCard.className = "image-card add-card";
@@ -420,7 +340,6 @@ function createAddCard() {
   return addCard;
 }
 
-// Render previews
 async function renderPreview(paths) {
   previewGrid.innerHTML = "";
   previewGrid.appendChild(createAddCard());
@@ -486,25 +405,13 @@ async function renderPreview(paths) {
   }
 }
 
-// Show full image
+// ==================== Preview ====================
 function showLargeImage(filePath) {
   currentPreviewIndex = selectedPaths.findIndex(p => p === filePath);
   const overlay = document.getElementById("imageOverlay");
   const img = document.getElementById("overlayImage");
 
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".tif" || ext === ".tiff") {
-    const base = path.basename(filePath, ext);
-    const previewPath = path.join(previewDir, `${base}_preview.jpg`);
-    if (fs.existsSync(previewPath)) {
-      img.src = `file://${previewPath}`;
-    } else {
-      img.src = `file://${path.join(__dirname, "assets", "no-preview.png")}`;
-    }
-  } else {
-    img.src = `file://${filePath}`;
-  }
-
+  img.src = `file://${getPreviewPathForImage(filePath)}`;
   overlay.classList.remove("hidden");
 }
 
@@ -512,23 +419,68 @@ document.getElementById("imageOverlay").addEventListener("click", () => {
   document.getElementById("imageOverlay").classList.add("hidden");
 });
 
-document.addEventListener("keydown", (event) => {
+// ==================== Screen switch ====================
+function switchToWorkspace() {
+  startScreen.classList.remove("active");
+  workspaceScreen.classList.add("active");
+  renderPreview(selectedPaths);
+  activateTab(tabCompress);
+}
+
+// ==================== Global Listeners ====================
+window.addEventListener("resize", () => {
+  if (currentCropper && !cropEditorContainer.classList.contains("hidden")) {
+    const rotation = selectedRotation;
+
+    currentCropper.destroy();
+
+    currentCropper = new Cropper(cropperImage, {
+      aspectRatio: getAspectRatioValue(selectedCropRatio),
+      rotatable: true,
+      viewMode: 1,
+      responsive: true,
+      restore: false,
+      autoCropArea: 0.8,
+      checkOrientation: false,
+      ready() {
+        if (rotation) currentCropper.rotateTo(rotation);
+      }
+    });
+  }
+});
+
+// Exit Crop mode
+document.getElementById("exitCropEditorBtn").addEventListener("click", exitCropEditor);
+
+// Key binding
+document.addEventListener("keydown", (e) => {
+  // Esc to exit crop mode
+  if (e.key === "Escape" && !cropEditorContainer.classList.contains("hidden")) {
+    exitCropEditor();
+  }
+  
+  // Enter to confirm crop
+  if (!cropEditorContainer.classList.contains("hidden") && e.key === "Enter") {
+    confirmCropBtn.click();
+  }
+
+  // preview
   const overlay = document.getElementById("imageOverlay");
   const img = document.getElementById("overlayImage");
 
   if (overlay.classList.contains("hidden")) return;
 
-  if (event.key === "Escape") {
+  if (e.key === "Escape") {
     overlay.classList.add("hidden");
     return;
   }
 
-  if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+  if (!["ArrowLeft", "ArrowRight"].includes(e.key)) return;
   if (selectedPaths.length === 0 || currentPreviewIndex === -1) return;
 
-  if (event.key === "ArrowLeft" && currentPreviewIndex > 0) {
+  if (e.key === "ArrowLeft" && currentPreviewIndex > 0) {
     currentPreviewIndex--;
-  } else if (event.key === "ArrowRight" && currentPreviewIndex < selectedPaths.length - 1) {
+  } else if (e.key === "ArrowRight" && currentPreviewIndex < selectedPaths.length - 1) {
     currentPreviewIndex++;
   } else {
     return;

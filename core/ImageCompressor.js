@@ -13,14 +13,21 @@ class ImageCompressor {
     this.targetSizeBytes = targetSizeMB * 1024 * 1024;
   }
 
-  // Debug log
+  /**
+   * Conditional logger for debug mode
+   * @param {string} message
+   */
   log(message) {
     if (DEBUG) {
       console.log(`[ImageCompressor] ${message}`);
     }
   }
 
-  // Recursively collect valid image files
+  /**
+   * Recursively collect all valid image paths
+   * @param {string[]} inputPaths
+   * @returns {Promise<string[]>}
+   */
   async collectValidImagePaths(inputPaths) {
     const allPaths = [];
 
@@ -45,7 +52,12 @@ class ImageCompressor {
     return allPaths;
   }
 
-  // Process a batch of files
+  /**
+   * Compress a batch of images
+   * @param {string[]} inputPaths
+   * @param {string} outputDir
+   * @returns {Promise<string[]>} list of output image paths
+   */
   async processBatch(inputPaths, outputDir) {
     const results = [];
 
@@ -53,12 +65,12 @@ class ImageCompressor {
       try {
         const stat = await fs.promises.stat(inputPath);
         if (stat.isDirectory()) {
-          const nestedFiles = await fs.promises.readdir(inputPath);
-          const fullPaths = nestedFiles.map((f) => path.join(inputPath, f));
+          const nested = await fs.promises.readdir(inputPath);
+          const fullPaths = nested.map((f) => path.join(inputPath, f));
           const nestedResults = await this.processBatch(fullPaths, outputDir);
           results.push(...nestedResults);
         } else if (SUPPORTED_IMAGE_EXTENSIONS.includes(path.extname(inputPath).toLowerCase())) {
-          const output = await this.processSingle(inputPath, outputDir);
+          const output = await this.processSingleImage(inputPath, outputDir);
           if (output) results.push(output);
         }
       } catch (err) {
@@ -69,50 +81,67 @@ class ImageCompressor {
     return results;
   }
 
-  // Process a single image
-  async processSingle(inputPath, outputDir) {
-    const ext = path.extname(inputPath); // no .toLowerCase()
-    const base = path.basename(inputPath, ext);
+  /**
+   * Compress or convert a single image
+   * @param {string} inputPath
+   * @param {string} outputDir
+   * @returns {Promise<string | null>}
+   */
+  async processSingleImage(inputPath, outputDir) {
+    try {
+      const ext = path.extname(inputPath);
+      let base = path.basename(inputPath, ext);
+      base = base.replace(/_(compressed|converted|cropped)$/, "");
 
-    const isJPG = ext.toLowerCase() === ".jpg" || ext.toLowerCase() === ".jpeg";
+      const isJPG = [".jpg", ".jpeg"].includes(ext.toLowerCase());
+      const imageBuffer = await fs.promises.readFile(inputPath);
+      const originalSize = imageBuffer.length;
 
-    const imageBuffer = await fs.promises.readFile(inputPath);
-    const originalSize = imageBuffer.length;
+      const timestamp = getFormattedTimestamp();
+      const outputPath = path.join(outputDir, `${base}_${timestamp}_compressed.jpg`);
 
-    const formatted = getFormattedTimestamp();
-    const outputPath = path.join(outputDir, `${base}_${formatted}_compressed.jpg`);
+      this.log(`Processing: ${inputPath}`);
 
-    this.log(`Processing: ${inputPath}`);
+      if (isJPG && (this.targetSizeBytes === 0 || originalSize <= this.targetSizeBytes)) {
+        await fs.promises.copyFile(inputPath, outputPath);
+        return outputPath;
+      }
 
-    // If already JPG and below size limit, just copy
-    if (isJPG && (this.targetSizeBytes === 0 || originalSize <= this.targetSizeBytes)) {
-      await fs.promises.copyFile(inputPath, outputPath);
+      // No compression required, just convert to JPG with max quality
+      if (this.targetSizeBytes === 0) {
+        const converted = await this.compressToJPG(imageBuffer, 100);
+        await fs.promises.writeFile(outputPath, converted);
+        return outputPath;
+      }
+
+      // Iteratively compress to target size
+      let quality = 100;
+      let compressed = await this.compressToJPG(imageBuffer, quality);
+
+      while (compressed.length > this.targetSizeBytes && quality > 10) {
+        quality -= 5;
+        compressed = await this.compressToJPG(imageBuffer, quality);
+      }
+
+      await fs.promises.writeFile(outputPath, compressed);
       return outputPath;
+    } catch (error) {
+      this.log(`Failed to compress ${inputPath}: ${error.message}`);
+      return null;
     }
-
-    // No compression required, convert with max quality
-    if (this.targetSizeBytes === 0) {
-      const converted = await this.compressToJPG(imageBuffer, 100);
-      await fs.promises.writeFile(outputPath, converted);
-      return outputPath;
-    }
-
-    // Compress iteratively
-    let quality = 100;
-    let compressed = await this.compressToJPG(imageBuffer, quality);
-
-    while (compressed.length > this.targetSizeBytes && quality > 10) {
-      quality -= 5;
-      compressed = await this.compressToJPG(imageBuffer, quality);
-    }
-
-    await fs.promises.writeFile(outputPath, compressed);
-    return outputPath;
   }
 
-  // JPEG compression with given quality
+  /**
+   * Compress JPEG with given quality, auto-rotate to match EXIF
+   * @param {Buffer} buffer
+   * @param {number} quality
+   * @returns {Promise<Buffer>}
+   */
   async compressToJPG(buffer, quality) {
-    return await sharp(buffer).jpeg({ quality }).toBuffer();
+    return sharp(buffer)
+      .rotate() // ✅ Fix orientation using EXIF
+      .jpeg({ quality })
+      .toBuffer();
   }
 }
 
