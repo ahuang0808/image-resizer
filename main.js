@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain } = require("electron");
 const FileHandler = require("./core/FileHandler");
 const ImageCompressor = require("./core/ImageCompressor");
 const ImageConverter = require("./core/ImageConverter");
+const ImageCropper = require("./core/ImageCropper");
 const path = require("path");
 const os = require("os");
 const { clearPreviewDir } = require("./core/utils");
@@ -14,6 +15,9 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1080,
     height: 720,
+    resizable: false,
+    fullscreenable: false,
+    maximizable: false,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -77,6 +81,27 @@ ipcMain.handle("convert-images", async (event, { filePaths, outputDir, format })
 
     // send progress back to renderer
     event.sender.send("convert-progress", {
+      current: i + 1,
+      total,
+    });
+  }
+
+  return results;
+});
+
+ipcMain.handle("crop-images", async (event, { edits, outputDir }) => {
+  const cropper = new ImageCropper(); // no need to pass global ratio/rotate
+
+  const results = [];
+  const total = edits.length;
+
+  for (let i = 0; i < total; i++) {
+    const { filePath, cropData, rotation } = edits[i];
+
+    const output = await cropper.cropSingle(filePath, outputDir, cropData, rotation);
+    if (output) results.push(output);
+
+    event.sender.send("crop-progress", {
       current: i + 1,
       total,
     });

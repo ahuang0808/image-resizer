@@ -45,11 +45,11 @@ class ImageConverter {
 
     // Convert to target format using highest quality settings
     if (this.outputFormat === "png") {
-      outputBuffer = await sharp(imageBuffer).png({ compressionLevel: 0 }).toBuffer(); // no compression
+      outputBuffer = await sharp(imageBuffer).rotate().png({ compressionLevel: 0 }).toBuffer();
     } else if (this.outputFormat === "webp") {
-      outputBuffer = await sharp(imageBuffer).webp({ quality: 100 }).toBuffer();
+      outputBuffer = await sharp(imageBuffer).rotate().webp({ quality: 100 }).toBuffer();
     } else {
-      outputBuffer = await sharp(imageBuffer).jpeg({ quality: 100 }).toBuffer();
+      outputBuffer = await sharp(imageBuffer).rotate().jpeg({ quality: 100 }).toBuffer();
     }
 
     await fs.promises.writeFile(outputPath, outputBuffer);
@@ -58,7 +58,7 @@ class ImageConverter {
 
   async collectValidImagePaths(inputPaths) {
     const allPaths = [];
-  
+
     const walk = async (paths) => {
       for (const inputPath of paths) {
         try {
@@ -75,7 +75,7 @@ class ImageConverter {
         }
       }
     };
-  
+
     await walk(inputPaths);
     return allPaths;
   }

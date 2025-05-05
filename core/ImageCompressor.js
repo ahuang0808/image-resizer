@@ -71,15 +71,16 @@ class ImageCompressor {
 
   // Process a single image
   async processSingle(inputPath, outputDir) {
-    const ext = path.extname(inputPath).toLowerCase();
+    const ext = path.extname(inputPath); // no .toLowerCase()
     const base = path.basename(inputPath, ext);
-    const isJPG = ext === ".jpg" || ext === ".jpeg";
+
+    const isJPG = ext.toLowerCase() === ".jpg" || ext.toLowerCase() === ".jpeg";
 
     const imageBuffer = await fs.promises.readFile(inputPath);
     const originalSize = imageBuffer.length;
 
     const formatted = getFormattedTimestamp();
-    const outputPath = path.join(outputDir, `${base}_${formatted}.jpg`);
+    const outputPath = path.join(outputDir, `${base}_${formatted}_compressed.jpg`);
 
     this.log(`Processing: ${inputPath}`);
 

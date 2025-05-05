@@ -172,9 +172,11 @@ body {
 ========================== */
 .app-preview-panel {
   flex: 2;
-  padding: 24px;
+  height: 100%;
   overflow-y: auto;
+  padding: 0;
   box-sizing: border-box;
+  position: relative;
 }
 
 /* ==========================
@@ -285,10 +287,18 @@ progress::-webkit-progress-value {
   Preview Grid
 ========================== */
 .app-grid {
+  overflow-y: visible;
+  padding: 24px;
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 16px;
+  position: relative;
 }
+
+.app-grid.hidden {
+  display: none !important;
+} 
 
 .image-card {
   background-color: white;
@@ -411,3 +421,157 @@ progress::-webkit-progress-value {
 .app-image-overlay.hidden {
   display: none;
 }
+
+/* ==========================
+  Crop Panel - Aspect Ratio & Rotation
+========================== */
+.app-ratio-group {
+  margin-bottom: 16px;
+}
+
+.app-config-label {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: #555;
+  display: block;
+}
+
+.app-ratio-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.ratio-btn {
+  padding: 6px 12px;
+  font-size: var(--font-size-sm);
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.ratio-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.ratio-btn.active {
+  background-color: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary-dark);
+}
+
+/* ==========================
+  Crop Panel - Rotation Slider
+========================== */
+.app-rotate-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+#cropRotateSlider {
+  flex: 1;
+  appearance: none;
+  height: 4px;
+  background: #ddd;
+  border-radius: 2px;
+  outline: none;
+}
+
+#cropRotateSlider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--color-primary);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 0 2px rgba(0,0,0,0.2);
+  margin-top: -6px;
+}
+
+#cropRotateSlider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--color-primary);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+#cropRotateValue {
+  min-width: 40px;
+  font-size: var(--font-size-sm);
+  color: #444;
+}
+
+/* ==========================
+  Crop Editor Panel
+========================== */
+.app-crop-editor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  padding: 24px;
+  box-sizing: border-box;
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-crop-editor.hidden {
+  display: none;
+}
+
+.cropper-wrapper {
+  max-width: 100%;
+  max-height: 80%;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  padding: 8px;
+  border-radius: 12px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+}
+
+#cropperImage {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  border-radius: 8px;
+}
+
+/* ==========================
+  Confirm Crop Button
+========================== */
+.app-exit-btn,
+.app-confirm-btn {
+  margin-top: 20px;
+  background-color: var(--color-primary);
+  color: white;
+  padding: 12px 24px;
+  font-size: var(--font-size-md);
+  font-weight: bold;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.app-exit-btn:hover,
+.app-confirm-btn:hover {
+  background-color: var(--color-primary-dark);
+}
+

@@ -5,6 +5,10 @@
   <meta charset="UTF-8" />
   <title>Swing Image</title>
   <link rel="stylesheet" href="./assets/style.css">
+  <!-- Cropper.js CSS -->
+  <link href="./assets/lib/cropper/cropper.min.css" rel="stylesheet" />
+  <!-- Cropper.js JS -->
+  <script src="./assets/lib/cropper/cropper.min.js"></script>
 </head>
 
 <body>
@@ -41,7 +45,7 @@
 
             <div class="app-output-row">
               <button id="compressOutputBtn">选择导出目录</button>
-              <pre id="compressOutputDir">未选择</pre>
+              <pre id="compressOutputDir"></pre>
             </div>
 
             <div class="action-row">
@@ -63,7 +67,7 @@
 
             <div class="app-output-row">
               <button id="convertOutputBtn">选择导出目录</button>
-              <pre id="convertOutputDir">未选择</pre>
+              <pre id="convertOutputDir"></pre>
             </div>
 
             <div class="action-row">
@@ -75,7 +79,39 @@
 
           <!-- ▸ Crop panel -->
           <div class="app-crop-config hidden">
-            <p class="app-note">裁切功能开发中...</p>
+            <div class="app-ratio-group">
+              <label class="app-config-label">裁切比例：</label>
+              <div class="app-ratio-options">
+                <button class="ratio-btn" data-ratio="free">Freeform</button>
+                <button class="ratio-btn" data-ratio="original">Original</button>
+                <button class="ratio-btn" data-ratio="1/1">1:1</button>
+                <button class="ratio-btn" data-ratio="4/5">4:5</button>
+                <button class="ratio-btn" data-ratio="5/4">5:4</button>
+                <button class="ratio-btn" data-ratio="3/4">3:4</button>
+                <button class="ratio-btn" data-ratio="4/3">4:3</button>
+                <button class="ratio-btn" data-ratio="2/3">2:3</button>
+                <button class="ratio-btn" data-ratio="3/2">3:2</button>
+                <button class="ratio-btn" data-ratio="9/16">9:16</button>
+                <button class="ratio-btn" data-ratio="16/9">16:9</button>
+              </div>
+            </div>
+
+            <div class="app-rotate-group">
+              <label class="app-config-label">旋转：</label>
+              <input id="cropRotateSlider" type="range" min="0" max="360" step="1" value="0">
+              <span id="cropRotateValue">0°</span>
+            </div>
+
+            <div class="app-output-row">
+              <button id="cropOutputBtn">选择导出目录</button>
+              <pre id="cropOutputDir"></pre>
+            </div>
+
+            <div class="action-row">
+              <button id="cropBtn">开始裁切</button>
+              <progress id="cropProgressBar" value="0" max="100"></progress>
+              <div id="cropProgressText" class="app-progress-text">进度：0%</div>
+            </div>
           </div>
         </div>
       </div>
@@ -85,16 +121,26 @@
         <div id="previewGrid" class="app-grid">
           <!-- Image thumbnails will be inserted here -->
         </div>
+        <!-- 🔧 Crop editor container -->
+        <div id="cropEditorContainer" class="app-crop-editor hidden">
+          <div class="cropper-wrapper">
+            <img id="cropperImage" src="" alt="待裁切图片">
+          </div>
+          <div class="crop-action-row">
+            <button id="exitCropEditorBtn" class="app-exit-btn">返回 (Esc)</button>
+            <button id="confirmCropBtn" class="app-confirm-btn">确认裁切 (Enter)</button>
+          </div>
+        </div>
       </div>
 
     </div>
   </div>
-  
+
   <!-- 🔍 Full image preview overlay -->
   <div id="imageOverlay" class="app-image-overlay hidden">
     <img id="overlayImage" />
   </div>
-  
+
   <script src="renderer.js"></script>
 </body>
 
