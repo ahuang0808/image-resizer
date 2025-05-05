@@ -181,13 +181,12 @@ function enterCropEditor(filePath) {
 
     const existing = cropEdits[filePath];
 
-    if (!existing) {
+    if (!existing || !existing.ratio) {
       selectedCropRatio = "original";
-      updateRatioButtons("original");
     } else {
-      selectedCropRatio = "free";
-      updateRatioButtons("free");
+      selectedCropRatio = existing.ratio;
     }
+    updateRatioButtons(selectedCropRatio);
 
     selectedRotation = existing?.rotation || 0;
     let previousCropBox = null;
@@ -266,7 +265,8 @@ confirmCropBtn.addEventListener("click", () => {
   cropEdits[editingPath] = {
     cropData: currentCropper.getData(true),
     canvasData: currentCropper.getCanvasData(),
-    rotation: selectedRotation
+    rotation: selectedRotation,
+    ratio: selectedCropRatio
   };
 
   exitCropEditor();
@@ -411,7 +411,19 @@ function showLargeImage(filePath) {
   const overlay = document.getElementById("imageOverlay");
   const img = document.getElementById("overlayImage");
 
-  img.src = `file://${getPreviewPathForImage(filePath)}`;
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".tif" || ext === ".tiff") {
+    const base = path.basename(filePath, ext);
+    const previewPath = path.join(previewDir, `${base}_preview.jpg`);
+    if (fs.existsSync(previewPath)) {
+      img.src = `file://${previewPath}`;
+    } else {
+      img.src = `file://${path.join(__dirname, "assets", "no-preview.png")}`;
+    }
+  } else {
+    img.src = `file://${filePath}`;
+  }
+
   overlay.classList.remove("hidden");
 }
 
